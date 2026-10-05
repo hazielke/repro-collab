@@ -69,6 +69,23 @@ Five participants with normal or corrected-to-normal vision will complete the st
 - **Accuracy**: Whether the participant correctly identified the larger square
 - **Stimulus difference**: The difference in area between comparison and reference squares (in sq.mm)
 
+Primary Analysis
+For each participant individually:
+
+Calculate median discrimination times for each stimulus difference
+Plot median discrimination time (y-axis) against stimulus difference in sq.mm (x-axis)
+Use hyperbolic coordinates to test whether the data follow the predicted reciprocal function
+Visual Inspection Criteria
+We will examine whether the data show:
+
+A horizontal line (constant discrimination time) for very small stimulus differences
+A transition point (likely corresponding to the JND)
+A negatively sloped line for larger stimulus differences (indicating faster discrimination as difference increases)
+Secondary Analyses
+Calculate error rates for each stimulus difference
+Identify the approximate location of the just noticeable difference (JND) as the point where the function transitions from flat to sloped
+Compare patterns across participants to assess consistency
+
 ## Analysis Plan
 
 ### Primary Analysis
@@ -86,6 +103,8 @@ We will examine whether the data show:
 - A horizontal line (constant discrimination time) for very small stimulus differences
 - A transition point (likely corresponding to the JND)
 - A negatively sloped line for larger stimulus differences (indicating faster discrimination as difference increases)
+- fit the function
+- Bootstrap test 
 
 ### Secondary Analyses
 

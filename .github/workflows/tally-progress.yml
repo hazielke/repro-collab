@@ -1,0 +1,91 @@
+name: Tally Workshop Progress
+
+# Run on demand during workshops. Reads all open `newfork` tracking issues and
+# writes a summary of each participant's highest completed milestone to the job summary.
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: read
+
+jobs:
+  tally:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tally milestones of open newfork issues
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Pin REST API version (default 2022-11-28 is deprecated)
+            github.hook.before('request', (o) => { o.headers['x-github-api-version'] = '2026-03-10'; });
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'newfork',
+              state: 'open',
+              per_page: 100
+            });
+            // listForRepo also returns pull requests
+            const tracked = issues.filter(i => !i.pull_request);
+            console.log(`Found ${tracked.length} open newfork issue(s)`);
+
+            // Checklist lines look like "- [x] 5. Close an issue - 🟢 Easy"
+            const itemRe = /^\s*- \[( |x|X)\] (\d+)\.\s+(.*?)(?:\s+-\s+[🟢🟡🔴].*)?$/gmu;
+
+            const rows = tracked.map(issue => {
+              const items = [...(issue.body || '').matchAll(itemRe)].map(m => ({
+                n: Number(m[2]),
+                done: m[1] !== ' ',
+                title: m[3].trim()
+              }));
+              const done = items.filter(i => i.done).map(i => i.n);
+              // Current position = the highest milestone checked off so far
+              const current = done.length ? Math.max(...done) : null;
+              const currentTitle = items.find(i => i.n === current)?.title ?? '';
+              const user = (issue.title.match(/^@(\S+)/) || [, issue.user.login])[1];
+              return {
+                user,
+                url: issue.html_url,
+                number: issue.number,
+                done: done.length,
+                total: items.length,
+                current,
+                currentTitle
+              };
+            }).sort((a, b) => (b.current ?? -1) - (a.current ?? -1)
+                              || a.user.localeCompare(b.user));
+
+            // Distribution: how many participants have each milestone as their highest checked one
+            const byMilestone = new Map();
+            for (const r of rows) {
+              const key = r.current ?? 'none';
+              byMilestone.set(key, (byMilestone.get(key) ?? 0) + 1);
+            }
+            const dist = [...byMilestone.entries()].sort(([a], [b]) =>
+              (a === 'none' ? -1 : a) - (b === 'none' ? -1 : b));
+
+            const lines = [
+              '## Workshop progress',
+              '',
+              `${rows.length} open \`newfork\` issue(s) at ${new Date().toISOString()}.`,
+              '',
+              '### Participants per highest completed milestone',
+              '',
+              '| Highest completed milestone | Participants |',
+              '| --- | ---: |',
+              ...dist.map(([k, n]) => `| ${k} | ${n} |`),
+              '',
+              '### Per participant',
+              '',
+              '| Participant | Issue | Highest completed milestone | Completed |',
+              '| --- | --- | --- | ---: |',
+              ...rows.map(r =>
+                `| @${r.user} | [#${r.number}](${r.url}) | ` +
+                `${r.current === null ? '—' : `${r.current}. ${r.currentTitle}`} | ` +
+                `${r.done}/${r.total} |`)
+            ];
+
+            await core.summary.addRaw(lines.join('\n'), true).write();
+            console.log(lines.join('\n'));
